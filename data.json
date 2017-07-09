@@ -36,6 +36,6 @@
 
   "extra_videos": [{
     "channel_name": "Vsauce",
-    "video_url": "https://www.youtube.com/watch?v=csInNn6pfT4"
+    "video_id": "csInNn6pfT4"
   }]
 }
