@@ -23,6 +23,9 @@ from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
 
 
+TEST_WITHOUT_SIGNING = True
+
+
 class LeoUploader(object):
     """Uploads YouTube video to LinguaLeo."""
 
@@ -49,10 +52,13 @@ class LeoUploader(object):
 
         self.channels = data['channels']
         self.extra_videos = data['extra_videos']
-        self.driver = webdriver.Chrome()
         self.youtube = build('youtube', 'v3', developerKey=api_key)
 
-        self._sign_in(email, password)
+        if TEST_WITHOUT_SIGNING:
+            print 'No signing to LinguaLeo.'
+        else:
+            self.driver = webdriver.Chrome()
+            self._sign_in(email, password)
 
     def add_new_videos(self):
         """Upload new videos from channels to LinguaLeo.
@@ -63,11 +69,13 @@ class LeoUploader(object):
         Raises:
             HttpError: if request cannot be sent.
         """
-        for channel in self.channels:
+        for channel in self.channels[:1]:
             try:
-                self._get_new_videos_ids(channel)
+                new_videos = self._get_new_videos_ids(channel)
             except HttpError:
                 continue
+
+            self._download_video_subtitles(new_videos[0]['id'])
 
     def add_extra_videos(self):
         """Upload videos that were not uploaded in previous attempt."""
@@ -105,13 +113,33 @@ class LeoUploader(object):
         """Return name of the video.
 
         Raises:
-            HttpError: if request cannot be sent.
+            apiclient.errors.HttpError: if request cannot be sent.
         """
         videos_response = self.youtube.videos().list(
             part='snippet',
             id=video_id
         ).execute()
         return videos_response['items'][0]['snippet']['title']
+
+    def _download_video_subtitles(self, video_id):
+        """Download English subtitles from video.
+
+        Raises:
+            AttributeError: if English caption not found.
+        """
+        captions_response = self.youtube.captions().list(
+            part='id, snippet',
+            videoId=video_id,
+        ).execute()
+
+        try:
+            caption_id = next(caption['id']
+                       for caption in captions_response['items']
+                       if caption['snippet']['language'] == 'en'
+            )
+        except StopIteration:
+            raise AttributeError('English captions not found')
+
 
     def _sign_in(self, email, password):
         """Authorize to LinguaLeo site."""
