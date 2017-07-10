@@ -18,20 +18,19 @@ Usage:
 
 from HTMLParser import HTMLParser
 import json
-import re
-import time
+import urllib2
 
-import caption_convert
+import xml2srt
 
 from apiclient.discovery import build
 from apiclient.errors import HttpError
 from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
-from bs4 import BeautifulSoup
 
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
+TEST_WITHOUT_DRIVER = True
+TEST_WITHOUT_SIGNING = True
 
 
 class LeoUploader(object):
@@ -120,7 +119,8 @@ class LeoUploader(object):
                      title=item['snippet']['title'])
                 for item in search_response['items']]
 
-    def _download_video_subtitles(self, video_id):
+    @staticmethod
+    def _download_video_subtitles(video_id):
         """Download English subtitles from video.
 
         Args:
@@ -129,36 +129,24 @@ class LeoUploader(object):
         Raises:
             AttributeError: if English caption not found.
         """
-        # Open new tab.
         video_id = 'A-QgGXbDyR0'
-        self.driver.execute_script(
-            'window.open("")'
+
+        response = urllib2.urlopen(
+            'http://video.google.com/timedtext?lang=en&v={}'.format(video_id)
         )
+        xml_text = response.read()
 
-        # Switch to new tab.
-        self.driver.switch_to.window(self.driver.window_handles[-1])
-        self.driver.get('http://video.google.com/timedtext?lang=en&v={}'.format(
-            video_id
-        ))
-
-        try:
-            xml_block = self.driver.find_element_by_css_selector(
-                'div.pretty-print > .collapsible > .expanded > .collapsible-content'
-            ).get_attribute('innerHTML')
-        except NoSuchElementException:
+        if not xml_text:
             raise AttributeError('English caption not found')
 
-        # Get XML from parsed HTML. BeautifulSoup is used, because
-        # it saves linefeeds.
-        xml_captions = BeautifulSoup(xml_block, 'html.parser').get_text()
         # Replace all escaped characters with unicode.
-        xml_captions = HTMLParser().unescape(xml_captions)
+        xml_text = HTMLParser().unescape(xml_text)
 
-        srt_captions = caption_convert.xml_to_srt(xml_captions)
+        srt_text = xml2srt.convert(xml_text)
 
-        # caption_filename = '{}.srt'.format(video_id)
-        # with open(caption_filename, 'w') as outfile:
-        #     outfile.write(srt_captions.encode('utf8'))
+        caption_filename = '{}.srt'.format(video_id)
+        with open(caption_filename, 'w') as outfile:
+            outfile.write(srt_text.encode('utf8'))
 
     def _sign_in(self, email, password):
         """Authorize to LinguaLeo site.
@@ -168,12 +156,11 @@ class LeoUploader(object):
             password (str): LinguaLeo account password corresponding to email.
         """
         self.driver.get('http://www.lingualeo.com/ru/login')
-        if 0:
+        if not TEST_WITHOUT_SIGNING:
             self.driver.find_element_by_name('email').send_keys(email)
             password_field = self.driver.find_element_by_name('password')
             password_field.send_keys(password)
             password_field.send_keys(Keys.RETURN)
-            self.driver.get('http://lingualeo.com/ru/jungle/add')
 
 
 def main():
