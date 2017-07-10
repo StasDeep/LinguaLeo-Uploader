@@ -17,13 +17,16 @@ Usage:
 """
 
 import json
+import re
+import time
+
 from apiclient.discovery import build
 from apiclient.errors import HttpError
 from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
 
 
-TEST_WITHOUT_SIGNING = True
+YT_PREFIX = 'https://www.youtube.com/watch?v='
 
 
 class LeoUploader(object):
@@ -54,11 +57,8 @@ class LeoUploader(object):
         self.extra_videos = data['extra_videos']
         self.youtube = build('youtube', 'v3', developerKey=api_key)
 
-        if TEST_WITHOUT_SIGNING:
-            print 'No signing to LinguaLeo.'
-        else:
-            self.driver = webdriver.Chrome()
-            self._sign_in(email, password)
+        self.driver = webdriver.Chrome()
+        self._sign_in(email, password)
 
     def add_new_videos(self):
         """Upload new videos from channels to LinguaLeo.
@@ -127,27 +127,45 @@ class LeoUploader(object):
         Raises:
             AttributeError: if English caption not found.
         """
-        captions_response = self.youtube.captions().list(
-            part='id, snippet',
-            videoId=video_id,
-        ).execute()
+        # Open new tab.
+        self.driver.execute_script(
+            'window.open("")'
+        )
 
-        try:
-            caption_id = next(caption['id']
-                       for caption in captions_response['items']
-                       if caption['snippet']['language'] == 'en'
-            )
-        except StopIteration:
-            raise AttributeError('English captions not found')
+        # Switch to new tab.
+        self.driver.switch_to.window(self.driver.window_handles[-1])
+        self.driver.get('http://www.nitrxgen.net/youtube_cc/{}.json'.format(
+            video_id
+        ))
 
+        # Get JSON response.
+        response = json.loads(self.driver.find_element_by_tag_name("pre").text)
+
+        for obj in response:
+            if obj['lang_code'] == 'en':
+                caption_id = obj['id']
+                break
+        else:
+            raise AttributeError('English caption not found')
+
+        self.driver.get('http://www.nitrxgen.net/youtube_cc/{}/{}.srt'.format(
+            video_id, caption_id
+        ))
+
+        caption_text = self.driver.find_element_by_tag_name("pre").text
+
+        with open('temp.srt', 'w') as outfile:
+            outfile.write(caption_text.encode('utf8'))
 
     def _sign_in(self, email, password):
         """Authorize to LinguaLeo site."""
         self.driver.get('http://www.lingualeo.com/ru/login')
-        self.driver.find_element_by_name('email').send_keys(email)
-        self.driver.find_element_by_name('password').send_keys(password)
-        self.driver.find_element_by_name('password').send_keys(Keys.RETURN)
-        self.driver.get('http://lingualeo.com/ru/jungle/add')
+        if 0:
+            self.driver.find_element_by_name('email').send_keys(email)
+            password_field = self.driver.find_element_by_name('password')
+            password_field.send_keys(password)
+            password_field.send_keys(Keys.RETURN)
+            self.driver.get('http://lingualeo.com/ru/jungle/add')
 
 
 def main():
