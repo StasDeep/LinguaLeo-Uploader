@@ -27,9 +27,9 @@ import xml2srt
 from apiclient.discovery import build
 from apiclient.errors import HttpError
 from httplib2 import ServerNotFoundError
-from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
@@ -73,54 +73,46 @@ class LeoUploader(object):
         IDs of new videos are extracted with API.
         Then these IDs are used for getting subtitles.
         """
-        for channel in self.channels[:1]:
+        for i, channel in enumerate(self.channels[:1]):
+            # Output blank line before every channel output except first.
+            if i:
+                print
+            print "Checking {}...".format(channel['name'])
+
             try:
                 new_videos = self._get_new_videos(channel)
             except HttpError as exception:
-                print exception
                 print 'Cannot get videos from channel "{}"'.format(channel['name'])
                 continue
 
-            for video in sorted(new_videos, key=lambda x: x['published_at'])[:1]:
+            if not new_videos:
+                print '  No new videos'
+
+            for video in sorted(new_videos, key=lambda x: x['published_at']):
                 try:
-                    self._upload_video(video, channel['name'])
-                except AttributeError:
-                    print 'Unable to upload (no subs): {}'.format(
-                        YT_PREFIX + video['id']
-                    )
-                    self.erroneous_videos.append(dict(
-                        channel_name=channel['name'],
-                        video_id=video['id']
-                    ))
-                else:
-                    print 'Successfully uploaded: {}'.format(
-                        self.driver.current_url
-                    )
-                    # Strip milliseconds and add one second.
-                    last_refresh = self._add_one_second(
-                        video['published_at'][:-5] + 'Z'
-                    )
-                    channel['last_refresh'] = last_refresh
+                    self._upload_video_wrapper(video, channel['name'])
+                except AttributeError as exception:
+                    print '  {}'.format(exception)
+
+                # Strip milliseconds and add one second
+                # to not upload a video twice.
+                last_refresh = self._add_one_second(
+                    video['published_at'][:-5] + 'Z'
+                )
+                channel['last_refresh'] = last_refresh
 
     def add_extra_videos(self):
         """Upload videos that were not uploaded in previous attempt."""
-        print 'Adding extra videos'
+        print '\nChecking extra videos...'
+
+        if not self.extra_videos:
+            '  No extra videos'
+
         for video in self.extra_videos:
             try:
-                self._upload_video(video, video['channel_name'])
-            except AttributeError:
-                print 'Unable to upload (no subs): {}'.format(
-                    YT_PREFIX + video['id']
-                )
-                self.erroneous_videos.append(dict(
-                    channel_name=video['channel_name'],
-                    video_id=video['id'],
-                    video_title=video['title']
-                ))
-            else:
-                print 'Successfully uploaded: {}'.format(
-                    self.driver.current_url
-                )
+                self._upload_video_wrapper(video, video['channel_name'])
+            except AttributeError as exception:
+                print '  {}'.format(exception)
 
     def save_config(self):
         """Save updated config to file."""
@@ -133,7 +125,36 @@ class LeoUploader(object):
         )
 
         with open(self.config_filename, 'w') as outfile:
-            json.dump(data, outfile, indent=4)
+            json_data = json.dumps(data, ensure_ascii=False, indent=4)
+            outfile.write(json_data.encode('utf8'))
+
+    def _upload_video_wrapper(self, video, channel_name):
+        """Wrap _upload video function to catch exceptions.
+
+        Args:
+            video (dict): object with 'id' and 'title' keys.
+                Represents the video to be uploaded.
+            channel_name (str): name of the channel video is from.
+
+        Raises:
+            AttributeError: if cannot upload.
+        """
+        try:
+            self._upload_video(video, channel_name)
+        except (AttributeError, NoSuchElementException):
+            self.erroneous_videos.append(dict(
+                channel_name=channel_name,
+                id=video['id'],
+                title=video['title']
+            ))
+            raise AttributeError('Unable to upload {}'.format(
+                YT_PREFIX + video['id']
+            ))
+        else:
+            print '  Successfully uploaded: {}'.format(
+                self.driver.current_url
+            )
+
 
     def _upload_video(self, video, channel_name):
         """Download subtitles, fill LinguaLeo form and publish video.
@@ -145,6 +166,7 @@ class LeoUploader(object):
 
         Raises:
             AttributeError: if English subtitles not found.
+            NoSuchElementException: if cannot upload.
         """
         subtitles_filename = self._download_video_subtitles(video['id'])
 
@@ -267,8 +289,8 @@ def main():
     try:
         leo_uploader.add_new_videos()
         leo_uploader.add_extra_videos()
-    except (IOError, KeyError, ValueError):
-        print 'Invalid config file'
+    except (IOError, KeyError, ValueError) as exception:
+        print 'Invalid config file:', exception
     except (TimeoutException, ServerNotFoundError) as exception:
         print 'Network error:', exception
     finally:
