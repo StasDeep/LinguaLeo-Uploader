@@ -18,6 +18,7 @@ Usage:
 
 from HTMLParser import HTMLParser
 import json
+import os
 import urllib2
 
 import xml2srt
@@ -29,8 +30,8 @@ from selenium import webdriver
 
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
-TEST_WITHOUT_DRIVER = True
-TEST_WITHOUT_SIGNING = True
+TEST_WITHOUT_DRIVER = False
+TEST_WITHOUT_SIGNING = False
 
 
 class LeoUploader(object):
@@ -70,9 +71,6 @@ class LeoUploader(object):
 
         IDs of new videos are extracted with API.
         Then these IDs are used for getting subtitles.
-
-        Raises:
-            HttpError: if request cannot be sent.
         """
         for channel in self.channels[:1]:
             try:
@@ -80,8 +78,8 @@ class LeoUploader(object):
             except HttpError:
                 continue
 
-            for video in sorted(new_videos, key=lambda x: x['published_at'])[:1]:
-                self._upload_video(video['id'])
+            for video in sorted(new_videos, key=lambda x: x['published_at']):
+                self._upload_video(video, channel['name'])
 
     def add_extra_videos(self):
         """Upload videos that were not uploaded in previous attempt."""
@@ -91,9 +89,28 @@ class LeoUploader(object):
         """Save updated config to file."""
         pass
 
-    def _upload_video(self, video_id):
-        """Download subtitles, fill LinguaLeo form and publish video."""
-        self._download_video_subtitles(video_id)
+    def _upload_video(self, video, channel_name):
+        """Download subtitles, fill LinguaLeo form and publish video.
+
+        Args:
+            video (dict): object with 'id' and 'title' keys.
+                Represents the video to be uploaded.
+            channel_name (str): name of the channel video is from.
+
+        Raises:
+            AttributeError: if English subtitles not found.
+        """
+        if not TEST_WITHOUT_DRIVER:
+            self.driver.get('http://lingualeo.com/ru/jungle/add')
+            self.driver.find_element_by_name('content_embed').send_keys(
+                YT_PREFIX + video['id']
+            )
+            self.driver.find_element_by_name('content_name').send_keys(
+                channel_name + ' - ' + video['title']
+            )
+
+        subtitles_filename = self._download_video_subtitles(video['id'])
+        # os.remove(subtitles_filename)
 
     def _get_new_videos(self, channel):
         """Return new videos from channel (ID, title and publish datetime).
@@ -122,32 +139,35 @@ class LeoUploader(object):
 
     @staticmethod
     def _download_video_subtitles(video_id):
-        """Download English subtitles from video.
+        """Download English subtitles from video and return name of the SRT file.
 
         Args:
             video_id (str): ID of the video of which subtitiles are downloaded.
 
         Raises:
-            AttributeError: if English caption not found.
-        """
-        video_id = 'A-QgGXbDyR0'
+            AttributeError: if English subtitles not found.
 
+        Returns:
+            str: name of the SRT file where subtitles are located.
+        """
         response = urllib2.urlopen(
             'http://video.google.com/timedtext?lang=en&v={}'.format(video_id)
         )
         xml_text = response.read()
 
         if not xml_text:
-            raise AttributeError('English caption not found')
+            raise AttributeError('English subtitles not found')
 
         # Replace all escaped characters with unicode.
-        xml_text = HTMLParser().unescape(xml_text)
+        xml_text = HTMLParser().unescape(xml_text.decode('utf-8'))
 
         srt_text = xml2srt.convert(xml_text)
 
-        caption_filename = '{}.srt'.format(video_id)
-        with open(caption_filename, 'w') as outfile:
+        subtitles_filename = '{}.srt'.format(video_id)
+        with open(subtitles_filename, 'w') as outfile:
             outfile.write(srt_text.encode('utf8'))
+
+        return subtitles_filename
 
     def _sign_in(self, email, password):
         """Authorize to LinguaLeo site.
