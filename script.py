@@ -61,8 +61,9 @@ class LeoUploader(object):
         self.extra_videos = data['extra_videos']
         self.youtube = build('youtube', 'v3', developerKey=api_key)
 
-        self.driver = webdriver.Chrome()
-        self._sign_in(email, password)
+        if not TEST_WITHOUT_DRIVER:
+            self.driver = webdriver.Chrome()
+            self._sign_in(email, password)
 
     def add_new_videos(self):
         """Upload new videos from channels to LinguaLeo.
