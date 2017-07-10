@@ -1,41 +1,38 @@
 {
-  "api_key": "AIzaSyB62KNhc8j_BNbEHFZP4Hf_h8QFdDg-iVo",
-  "email": "glubokiy.stas@gmail.com",
-  "password": "zkX?,X2?G1",
-
-  "channels": [{
-    "id": "UCUHW94eEFW7hkUMVaZz4eDg",
-    "name": "MinutePhysics",
-    "last_refresh": "2017-02-23T13:31:06Z"
-  },
-  {
-    "id": "UCsooa4yRKGN_zEE8iknghZA",
-    "name": "TEDEd",
-    "last_refresh": "2017-02-23T13:31:06Z"
-  },
-  {
-    "id": "UCLXo7UDZvByw2ixzpQCufnA",
-    "name": "Vox",
-    "last_refresh": "2017-02-23T13:31:06Z"
-  },
-  {
-    "id": "UCHnyfMqiRRG1u-2MsSQLbXA",
-    "name": "Veritasium",
-    "last_refresh": "2017-02-23T13:31:06Z"
-  },
-  {
-    "id": "UCH4BNI0-FOK2dMXoFtViWHw",
-    "name": "It's Okay To Be Smart",
-    "last_refresh": "2017-02-23T13:31:06Z"
-  },
-  {
-    "id": "UCsXVk37bltHxD1rDPwtNM8Q",
-    "name": "In a Nutshell",
-    "last_refresh": "2017-02-23T13:31:06Z"
-  }],
-
-  "extra_videos": [{
-    "channel_name": "Vsauce",
-    "video_id": "csInNn6pfT4"
-  }]
+    "channels": [
+        {
+            "last_refresh": "2017-03-30T13:30:00",
+            "id": "UCUHW94eEFW7hkUMVaZz4eDg",
+            "name": "MinutePhysics"
+        },
+        {
+            "last_refresh": "2017-02-23T13:31:06Z",
+            "id": "UCsooa4yRKGN_zEE8iknghZA",
+            "name": "TEDEd"
+        },
+        {
+            "last_refresh": "2017-02-23T13:31:06Z",
+            "id": "UCLXo7UDZvByw2ixzpQCufnA",
+            "name": "Vox"
+        },
+        {
+            "last_refresh": "2017-02-23T13:31:06Z",
+            "id": "UCHnyfMqiRRG1u-2MsSQLbXA",
+            "name": "Veritasium"
+        },
+        {
+            "last_refresh": "2017-02-23T13:31:06Z",
+            "id": "UCH4BNI0-FOK2dMXoFtViWHw",
+            "name": "It's Okay To Be Smart"
+        },
+        {
+            "last_refresh": "2017-02-23T13:31:06Z",
+            "id": "UCsXVk37bltHxD1rDPwtNM8Q",
+            "name": "In a Nutshell"
+        }
+    ],
+    "extra_videos": [],
+    "password": "zkX?,X2?G1",
+    "email": "glubokiy.stas@gmail.com",
+    "api_key": "AIzaSyB62KNhc8j_BNbEHFZP4Hf_h8QFdDg-iVo"
 }

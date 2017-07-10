@@ -16,6 +16,7 @@ Usage:
 
 """
 
+import datetime
 from HTMLParser import HTMLParser
 import json
 import os
@@ -25,46 +26,46 @@ import xml2srt
 
 from apiclient.discovery import build
 from apiclient.errors import HttpError
+from httplib2 import ServerNotFoundError
 from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
-TEST_WITHOUT_DRIVER = False
-TEST_WITHOUT_SIGNING = False
 
 
 class LeoUploader(object):
     """Uploads YouTube video to LinguaLeo."""
 
-    def __init__(self, filename):
+    def __init__(self, config_filename):
         """Initialize LeoUploader object.
         Sign in to LinguaLeo.
 
         Args:
-            filename (str): name of the config file.
+            config_filename (str): name of the config file.
 
         Raises:
             IOError: if file cannot be read.
             ValueError: if file content is not valid JSON.
             KeyError: if JSON does not have necessary fields.
         """
-        self.filename = filename
+        self.config_filename = config_filename
 
-        with open(self.filename, 'r') as infile:
+        with open(self.config_filename, 'r') as infile:
             data = json.load(infile)
 
-        email = data['email']
-        password = data['password']
-        api_key = data['api_key']
+        self.email = data['email']
+        self.password = data['password']
+        self.api_key = data['api_key']
 
         self.channels = data['channels']
         self.extra_videos = data['extra_videos']
-        self.youtube = build('youtube', 'v3', developerKey=api_key)
+        self.erroneous_videos = []
+        self.youtube = build('youtube', 'v3', developerKey=self.api_key)
 
-        if not TEST_WITHOUT_DRIVER:
-            self.driver = webdriver.Chrome()
-            self._sign_in(email, password)
+        self.driver = webdriver.Chrome()
+        self._sign_in()
 
     def add_new_videos(self):
         """Upload new videos from channels to LinguaLeo.
@@ -75,19 +76,64 @@ class LeoUploader(object):
         for channel in self.channels[:1]:
             try:
                 new_videos = self._get_new_videos(channel)
-            except HttpError:
+            except HttpError as exception:
+                print exception
+                print 'Cannot get videos from channel "{}"'.format(channel['name'])
                 continue
 
-            for video in sorted(new_videos, key=lambda x: x['published_at']):
-                self._upload_video(video, channel['name'])
+            for video in sorted(new_videos, key=lambda x: x['published_at'])[:1]:
+                try:
+                    self._upload_video(video, channel['name'])
+                except AttributeError:
+                    print 'Unable to upload (no subs): {}'.format(
+                        YT_PREFIX + video['id']
+                    )
+                    self.erroneous_videos.append(dict(
+                        channel_name=channel['name'],
+                        video_id=video['id']
+                    ))
+                else:
+                    print 'Successfully uploaded: {}'.format(
+                        self.driver.current_url
+                    )
+                    # Strip milliseconds and add one second.
+                    last_refresh = self._add_one_second(
+                        video['published_at'][:-5] + 'Z'
+                    )
+                    channel['last_refresh'] = last_refresh
 
     def add_extra_videos(self):
         """Upload videos that were not uploaded in previous attempt."""
-        pass
+        print 'Adding extra videos'
+        for video in self.extra_videos:
+            try:
+                self._upload_video(video, video['channel_name'])
+            except AttributeError:
+                print 'Unable to upload (no subs): {}'.format(
+                    YT_PREFIX + video['id']
+                )
+                self.erroneous_videos.append(dict(
+                    channel_name=video['channel_name'],
+                    video_id=video['id'],
+                    video_title=video['title']
+                ))
+            else:
+                print 'Successfully uploaded: {}'.format(
+                    self.driver.current_url
+                )
 
     def save_config(self):
         """Save updated config to file."""
-        pass
+        data = dict(
+            api_key=self.api_key,
+            email=self.email,
+            password=self.password,
+            channels=self.channels,
+            extra_videos=self.erroneous_videos
+        )
+
+        with open(self.config_filename, 'w') as outfile:
+            json.dump(data, outfile, indent=4)
 
     def _upload_video(self, video, channel_name):
         """Download subtitles, fill LinguaLeo form and publish video.
@@ -100,17 +146,38 @@ class LeoUploader(object):
         Raises:
             AttributeError: if English subtitles not found.
         """
-        if not TEST_WITHOUT_DRIVER:
-            self.driver.get('http://lingualeo.com/ru/jungle/add')
-            self.driver.find_element_by_name('content_embed').send_keys(
-                YT_PREFIX + video['id']
-            )
-            self.driver.find_element_by_name('content_name').send_keys(
-                channel_name + ' - ' + video['title']
-            )
-
         subtitles_filename = self._download_video_subtitles(video['id'])
-        # os.remove(subtitles_filename)
+
+        self.driver.get('http://lingualeo.com/ru/jungle/add')
+
+        # Insert video link.
+        self.driver.find_element_by_name('content_embed').send_keys(
+            YT_PREFIX + video['id']
+        )
+
+        # Insert video name.
+        self.driver.find_element_by_name('content_name').send_keys(
+            channel_name + ' - ' + video['title']
+        )
+
+        # Insert path to the subtitles.
+        self.driver.find_element_by_name('content_srt').send_keys(
+            os.path.abspath(subtitles_filename)
+        )
+
+        # Select 'Educational video' genre.
+        self.driver.find_element_by_css_selector(
+            '#genre_id > option[value="10"]'
+        ).click()
+
+        # Submit whole form, which will redirect to Publish page.
+        self.driver.find_element_by_id('addContentForm').submit()
+
+        # Publish video, which will redirect to final page with video.
+        self.driver.find_element_by_id('publicContentBtn').click()
+
+        # Remove subtitles, because they are not needed anymore.
+        os.remove(subtitles_filename)
 
     def _get_new_videos(self, channel):
         """Return new videos from channel (ID, title and publish datetime).
@@ -169,25 +236,43 @@ class LeoUploader(object):
 
         return subtitles_filename
 
-    def _sign_in(self, email, password):
-        """Authorize to LinguaLeo site.
+    @staticmethod
+    def _add_one_second(timestamp):
+        """Add a second to time.
 
         Args:
-            email (str): LinguaLeo account email.
-            password (str): LinguaLeo account password corresponding to email.
+            timestamp (str): time in ISO 8601 format.
+
+        Returns:
+            str: new timestamp
         """
+        iso_8601_format = '%Y-%m-%dT%H:%M:%SZ'
+        old_datetime = datetime.datetime.strptime(timestamp, iso_8601_format)
+        old_datetime += datetime.timedelta(seconds=1)
+        return old_datetime.strftime(iso_8601_format)
+
+    def _sign_in(self):
+        """Authorize to LinguaLeo site."""
         self.driver.get('http://www.lingualeo.com/ru/login')
-        if not TEST_WITHOUT_SIGNING:
-            self.driver.find_element_by_name('email').send_keys(email)
-            password_field = self.driver.find_element_by_name('password')
-            password_field.send_keys(password)
-            password_field.send_keys(Keys.RETURN)
+        self.driver.find_element_by_name('email').send_keys(self.email)
+        password_field = self.driver.find_element_by_name('password')
+        password_field.send_keys(self.password)
+        password_field.send_keys(Keys.RETURN)
 
 
 def main():
     """Main function that launches automatically from command line."""
     leo_uploader = LeoUploader('data.json')
-    leo_uploader.add_new_videos()
+
+    try:
+        leo_uploader.add_new_videos()
+        leo_uploader.add_extra_videos()
+    except (IOError, KeyError, ValueError):
+        print 'Invalid config file'
+    except (TimeoutException, ServerNotFoundError) as exception:
+        print 'Network error:', exception
+    finally:
+        leo_uploader.save_config()
 
 
 if __name__ == '__main__':
