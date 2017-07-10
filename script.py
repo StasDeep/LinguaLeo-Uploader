@@ -73,7 +73,7 @@ class LeoUploader(object):
         IDs of new videos are extracted with API.
         Then these IDs are used for getting subtitles.
         """
-        for i, channel in enumerate(self.channels[:1]):
+        for i, channel in enumerate(self.channels):
             # Output blank line before every channel output except first.
             if i:
                 print
@@ -106,7 +106,7 @@ class LeoUploader(object):
         print '\nChecking extra videos...'
 
         if not self.extra_videos:
-            '  No extra videos'
+            print '  No extra videos'
 
         for video in self.extra_videos:
             try:
