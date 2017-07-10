@@ -16,14 +16,19 @@ Usage:
 
 """
 
+from HTMLParser import HTMLParser
 import json
 import re
 import time
+
+import caption_convert
 
 from apiclient.discovery import build
 from apiclient.errors import HttpError
 from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
+from bs4 import BeautifulSoup
 
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
@@ -71,11 +76,12 @@ class LeoUploader(object):
         """
         for channel in self.channels[:1]:
             try:
-                new_videos = self._get_new_videos_ids(channel)
+                new_videos = self._get_new_videos(channel)
             except HttpError:
                 continue
 
-            self._download_video_subtitles(new_videos[0]['id'])
+            for video in sorted(new_videos, key=lambda x: x['published_at'])[:1]:
+                self._upload_video(video['id'])
 
     def add_extra_videos(self):
         """Upload videos that were not uploaded in previous attempt."""
@@ -85,14 +91,18 @@ class LeoUploader(object):
         """Save updated config to file."""
         pass
 
-    def _get_new_videos_ids(self, channel):
-        """Return IDs of new videos from channel.
+    def _upload_video(self, video_id):
+        """Download subtitles, fill LinguaLeo form and publish video."""
+        self._download_video_subtitles(video_id)
+
+    def _get_new_videos(self, channel):
+        """Return new videos from channel (ID, title and publish datetime).
 
         Args:
-            channel (dict): object with 'id' and 'last_refresh' keys.
+            channel (dict): object with channel 'id' and 'last_refresh' keys.
 
         Returns:
-            list: dicts with 'id' and 'published_at'.
+            list: dicts with 'id', 'title' and 'published_at'.
 
         Raises:
             HttpError: if request cannot be sent.
@@ -106,59 +116,57 @@ class LeoUploader(object):
         ).execute()
 
         return [dict(id=item['id']['videoId'],
-                     published_at=item['snippet']['publishedAt'])
+                     published_at=item['snippet']['publishedAt'],
+                     title=item['snippet']['title'])
                 for item in search_response['items']]
-
-    def _get_video_name(self, video_id):
-        """Return name of the video.
-
-        Raises:
-            apiclient.errors.HttpError: if request cannot be sent.
-        """
-        videos_response = self.youtube.videos().list(
-            part='snippet',
-            id=video_id
-        ).execute()
-        return videos_response['items'][0]['snippet']['title']
 
     def _download_video_subtitles(self, video_id):
         """Download English subtitles from video.
+
+        Args:
+            video_id (str): ID of the video of which subtitiles are downloaded.
 
         Raises:
             AttributeError: if English caption not found.
         """
         # Open new tab.
+        video_id = 'A-QgGXbDyR0'
         self.driver.execute_script(
             'window.open("")'
         )
 
         # Switch to new tab.
         self.driver.switch_to.window(self.driver.window_handles[-1])
-        self.driver.get('http://www.nitrxgen.net/youtube_cc/{}.json'.format(
+        self.driver.get('http://video.google.com/timedtext?lang=en&v={}'.format(
             video_id
         ))
 
-        # Get JSON response.
-        response = json.loads(self.driver.find_element_by_tag_name("pre").text)
-
-        for obj in response:
-            if obj['lang_code'] == 'en':
-                caption_id = obj['id']
-                break
-        else:
+        try:
+            xml_block = self.driver.find_element_by_css_selector(
+                'div.pretty-print > .collapsible > .expanded > .collapsible-content'
+            ).get_attribute('innerHTML')
+        except NoSuchElementException:
             raise AttributeError('English caption not found')
 
-        self.driver.get('http://www.nitrxgen.net/youtube_cc/{}/{}.srt'.format(
-            video_id, caption_id
-        ))
+        # Get XML from parsed HTML. BeautifulSoup is used, because
+        # it saves linefeeds.
+        xml_captions = BeautifulSoup(xml_block, 'html.parser').get_text()
+        # Replace all escaped characters with unicode.
+        xml_captions = HTMLParser().unescape(xml_captions)
 
-        caption_text = self.driver.find_element_by_tag_name("pre").text
+        srt_captions = caption_convert.xml_to_srt(xml_captions)
 
-        with open('temp.srt', 'w') as outfile:
-            outfile.write(caption_text.encode('utf8'))
+        # caption_filename = '{}.srt'.format(video_id)
+        # with open(caption_filename, 'w') as outfile:
+        #     outfile.write(srt_captions.encode('utf8'))
 
     def _sign_in(self, email, password):
-        """Authorize to LinguaLeo site."""
+        """Authorize to LinguaLeo site.
+
+        Args:
+            email (str): LinguaLeo account email.
+            password (str): LinguaLeo account password corresponding to email.
+        """
         self.driver.get('http://www.lingualeo.com/ru/login')
         if 0:
             self.driver.find_element_by_name('email').send_keys(email)
