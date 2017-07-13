@@ -1,38 +1,38 @@
 {
     "channels": [
         {
-            "last_refresh": "2017-06-29T14:00:04Z", 
-            "id": "UCUHW94eEFW7hkUMVaZz4eDg", 
+            "last_refresh": "2017-06-29T14:00:04Z",
+            "id": "UCUHW94eEFW7hkUMVaZz4eDg",
             "name": "MinutePhysics"
-        }, 
+        },
         {
-            "last_refresh": "2017-07-10T15:01:45Z", 
-            "id": "UCsooa4yRKGN_zEE8iknghZA", 
+            "last_refresh": "2017-07-10T15:01:45Z",
+            "id": "UCsooa4yRKGN_zEE8iknghZA",
             "name": "TEDEd"
-        }, 
+        },
         {
-            "last_refresh": "2017-07-12T13:57:53Z", 
-            "id": "UCLXo7UDZvByw2ixzpQCufnA", 
+            "last_refresh": "2017-07-12T13:57:53Z",
+            "id": "UCLXo7UDZvByw2ixzpQCufnA",
             "name": "Vox"
-        }, 
+        },
         {
-            "last_refresh": "2017-07-12T15:19:34Z", 
-            "id": "UCHnyfMqiRRG1u-2MsSQLbXA", 
+            "last_refresh": "2017-07-12T15:19:34Z",
+            "id": "UCHnyfMqiRRG1u-2MsSQLbXA",
             "name": "Veritasium"
-        }, 
+        },
         {
-            "last_refresh": "2017-07-11T19:12:49Z", 
-            "id": "UCH4BNI0-FOK2dMXoFtViWHw", 
+            "last_refresh": "2017-07-11T19:12:49Z",
+            "id": "UCH4BNI0-FOK2dMXoFtViWHw",
             "name": "It's Okay To Be Smart"
-        }, 
+        },
         {
-            "last_refresh": "2017-06-08T16:28:32Z", 
-            "id": "UCsXVk37bltHxD1rDPwtNM8Q", 
+            "last_refresh": "2017-06-08T16:28:32Z",
+            "id": "UCsXVk37bltHxD1rDPwtNM8Q",
             "name": "In a Nutshell"
         }
-    ], 
-    "extra_videos": [], 
-    "password": "zkX?,X2?G1", 
-    "email": "glubokiy.stas@gmail.com", 
-    "api_key": "AIzaSyB62KNhc8j_BNbEHFZP4Hf_h8QFdDg-iV"
+    ],
+    "extra_videos": [],
+    "password": "zkX?,X2?G1",
+    "email": "glubokiy.stas@gmailcom",
+    "api_key": "AIzaSyB62KNhc8j_BNbEHFZP4Hf_h8QFdDg-iVo"
 }

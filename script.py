@@ -16,13 +16,12 @@ Usage:
 
 """
 
+import argparse
 import datetime
 from HTMLParser import HTMLParser
 import json
 import os
 import urllib2
-
-import xml2srt
 
 from apiclient.discovery import build
 from apiclient.errors import HttpError
@@ -31,8 +30,15 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
+import xml2srt
+
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
+
+
+class CredentialsError(Exception):
+    """Error with email or password."""
+    pass
 
 
 class LeoUploader(object):
@@ -65,7 +71,6 @@ class LeoUploader(object):
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
 
         self.driver = webdriver.Chrome()
-        self._sign_in()
 
     def add_new_videos(self):
         """Upload new videos from channels to LinguaLeo.
@@ -114,6 +119,20 @@ class LeoUploader(object):
             except AttributeError as exception:
                 print '  {}'.format(exception)
 
+    def sign_in(self):
+        """Authorize to LinguaLeo site.
+
+        Raises:
+            CredentialsError: if email and/or password is invalid.
+        """
+        self.driver.get('http://lingualeo.com/ru/login')
+        self.driver.find_element_by_name('email').send_keys(self.email)
+        password_field = self.driver.find_element_by_name('password')
+        password_field.send_keys(self.password)
+        password_field.send_keys(Keys.RETURN)
+        if self.driver.current_url == 'http://lingualeo.com/ru/login':
+            raise CredentialsError('Invalid email and/or password')
+
     def save_config(self):
         """Save updated config to file."""
         data = dict(
@@ -128,6 +147,17 @@ class LeoUploader(object):
             json_data = json.dumps(data, ensure_ascii=False, indent=4)
             outfile.write(json_data.encode('utf8'))
 
+    def write_extra_videos(self, extra_videos):
+        """Save config with extended extra videos.
+
+        Args:
+            extra_videos (list): list of URLs to videos.
+
+        Raises:
+            ValueError: if URLs' format is incorrect.
+        """
+        pass
+
     def _upload_video_wrapper(self, video, channel_name):
         """Wrap _upload video function to catch exceptions.
 
@@ -141,15 +171,18 @@ class LeoUploader(object):
         """
         try:
             self._upload_video(video, channel_name)
-        except (AttributeError, NoSuchElementException):
+        except AttributeError as exception:
             self.erroneous_videos.append(dict(
                 channel_name=channel_name,
                 id=video['id'],
                 title=video['title']
             ))
-            raise AttributeError('Unable to upload {}'.format(
-                YT_PREFIX + video['id']
+            raise AttributeError('Unable to upload: {} ({})'.format(
+                YT_PREFIX + video['id'],
+                exception
             ))
+        except UserWarning as warning:
+            print '  {}'.format(warning)
         else:
             print '  Successfully uploaded: {}'.format(
                 self.driver.current_url
@@ -165,8 +198,7 @@ class LeoUploader(object):
             channel_name (str): name of the channel video is from.
 
         Raises:
-            AttributeError: if English subtitles not found.
-            NoSuchElementException: if cannot upload.
+            AttributeError: if English subtitles not found or name is incorrect.
         """
         subtitles_filename = self._download_video_subtitles(video['id'])
 
@@ -193,13 +225,28 @@ class LeoUploader(object):
         ).click()
 
         # Submit whole form, which will redirect to Publish page.
-        self.driver.find_element_by_id('addContentForm').submit()
+        try:
+            self.driver.find_element_by_id('addContentForm').submit()
+        finally:
+            os.remove(subtitles_filename)
 
         # Publish video, which will redirect to final page with video.
-        self.driver.find_element_by_id('publicContentBtn').click()
-
-        # Remove subtitles, because they are not needed anymore.
-        os.remove(subtitles_filename)
+        # If Publish button does not exist, there could be 2 reasons:
+        # - invalid input (error);
+        # - video is processing (warn user, that video needs to be published).
+        try:
+            self.driver.find_element_by_id('publicContentBtn').click()
+        except NoSuchElementException:
+            if self.driver.current_url == 'http://lingualeo.com/ru/jungle/add':
+                raise AttributeError('Cannot submit form. '
+                                     'Probably name is incorrect')
+            else:
+                raise UserWarning('Need to publish: {}'.format(
+                    self.driver.current_url
+                ))
+        finally:
+            # Remove subtitles, because they are not needed anymore.
+            os.remove(subtitles_filename)
 
     def _get_new_videos(self, channel):
         """Return new videos from channel (ID, title and publish datetime).
@@ -273,30 +320,49 @@ class LeoUploader(object):
         old_datetime += datetime.timedelta(seconds=1)
         return old_datetime.strftime(iso_8601_format)
 
-    def _sign_in(self):
-        """Authorize to LinguaLeo site."""
-        self.driver.get('http://lingualeo.com/ru/login')
-        self.driver.find_element_by_name('email').send_keys(self.email)
-        password_field = self.driver.find_element_by_name('password')
-        password_field.send_keys(self.password)
-        password_field.send_keys(Keys.RETURN)
-        if self.driver.current_url == 'http://lingualeo.com/ru/login':
-            raise ValueError('wrong email and/or password')
-
 
 def main():
     """Main function that launches automatically from command line."""
+    parser = argparse.ArgumentParser(
+        description='Work with LinguaLeo video adding mechanism.'
+    )
+
+    parser.add_argument(
+        '--extra',
+        dest='extra_videos',
+        metavar='VIDEO_URL',
+        nargs='+',
+        default=[],
+        help='URLs to YouTube videos'
+    )
+
+    parser.add_argument(
+        '--config',
+        default='data.json',
+        help='Name of the config file'
+    )
+
+    args = parser.parse_args()
+
     try:
-        leo_uploader = LeoUploader('data.json')
-    except ValueError as exception:
-        print 'Invalid credentials:', exception
+        leo_uploader = LeoUploader(args.config)
+    except (IOError, KeyError, ValueError) as exception:
+        print exception
+        return
+
+    if args.extra_videos:
+        leo_uploader.write_extra_videos(args.extra_videos)
+        return
+
+    try:
+        leo_uploader.sign_in()
+    except CredentialsError as exception:
+        print exception
         return
 
     try:
         leo_uploader.add_new_videos()
         leo_uploader.add_extra_videos()
-    except (IOError, KeyError, ValueError) as exception:
-        print 'Invalid config file:', exception
     except (TimeoutException, ServerNotFoundError) as exception:
         print 'Network error:', exception
     finally:
