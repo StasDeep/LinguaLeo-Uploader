@@ -275,16 +275,22 @@ class LeoUploader(object):
 
     def _sign_in(self):
         """Authorize to LinguaLeo site."""
-        self.driver.get('http://www.lingualeo.com/ru/login')
+        self.driver.get('http://lingualeo.com/ru/login')
         self.driver.find_element_by_name('email').send_keys(self.email)
         password_field = self.driver.find_element_by_name('password')
         password_field.send_keys(self.password)
         password_field.send_keys(Keys.RETURN)
+        if self.driver.current_url == 'http://lingualeo.com/ru/login':
+            raise ValueError('wrong email and/or password')
 
 
 def main():
     """Main function that launches automatically from command line."""
-    leo_uploader = LeoUploader('data.json')
+    try:
+        leo_uploader = LeoUploader('data.json')
+    except ValueError as exception:
+        print 'Invalid credentials:', exception
+        return
 
     try:
         leo_uploader.add_new_videos()
