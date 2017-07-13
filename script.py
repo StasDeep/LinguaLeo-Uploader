@@ -225,10 +225,7 @@ class LeoUploader(object):
         ).click()
 
         # Submit whole form, which will redirect to Publish page.
-        try:
-            self.driver.find_element_by_id('addContentForm').submit()
-        finally:
-            os.remove(subtitles_filename)
+        self.driver.find_element_by_id('addContentForm').submit()
 
         # Publish video, which will redirect to final page with video.
         # If Publish button does not exist, there could be 2 reasons:
