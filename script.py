@@ -93,6 +93,8 @@ class LeoUploader(object):
 
             if not new_videos:
                 print '  No new videos'
+            else:
+                print '  Found {} new video(s)'.format(len(new_videos))
 
             for video in sorted(new_videos, key=lambda x: x['published_at']):
                 try:
@@ -113,6 +115,8 @@ class LeoUploader(object):
 
         if not self.extra_videos:
             print '  No extra videos'
+        else:
+            print '  Found {} video(s)'.format(len(self.extra_videos))
 
         for video in self.extra_videos:
             try:
@@ -126,6 +130,7 @@ class LeoUploader(object):
         Raises:
             CredentialsError: if email and/or password is invalid.
         """
+        print 'Signing in...'
         self.driver.get('http://lingualeo.com/ru/login')
         self.driver.find_element_by_name('email').send_keys(self.email)
         password_field = self.driver.find_element_by_name('password')
@@ -133,6 +138,7 @@ class LeoUploader(object):
         password_field.send_keys(Keys.RETURN)
         if self.driver.current_url == 'http://lingualeo.com/ru/login':
             raise CredentialsError('Invalid email and/or password')
+        print 'Done\n'
 
     def save_config(self, extra_videos=None):
         """Save updated config to file."""
@@ -245,7 +251,7 @@ class LeoUploader(object):
 
         # Insert video name.
         self.driver.find_element_by_name('content_name').send_keys(
-            channel_name + ' - ' + video['title']
+            self._generate_video_title(channel_name, video['title'])
         )
 
         # Insert path to the subtitles.
@@ -350,6 +356,19 @@ class LeoUploader(object):
         old_datetime = datetime.datetime.strptime(timestamp, iso_8601_format)
         old_datetime += datetime.timedelta(seconds=1)
         return old_datetime.strftime(iso_8601_format)
+
+    def _generate_video_title(self, channel_name, video_title):
+        """Concat channel name and video title.
+        Take into special cases.
+        """
+        if channel_name == 'Numberphile':
+            if video_title.endswith('- Numberphile'):
+                video_title = video_title[:-13]
+
+        if channel_name == 'TEDEd':
+            video_title = video_title.rsplit(' - ', 1)[0]
+
+        return '{} - {}'.format(channel_name, video_title)
 
 
 def main():
