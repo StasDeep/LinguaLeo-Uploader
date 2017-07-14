@@ -136,6 +136,8 @@ class LeoUploader(object):
 
     def save_config(self, extra_videos=None):
         """Save updated config to file."""
+        # If extra videos are provided, than they're should be saved as well
+        # as erroneous videos.
         if extra_videos is not None:
             self.erroneous_videos.extend(extra_videos)
 
@@ -188,7 +190,7 @@ class LeoUploader(object):
                 channel_name=channel_name
             ))
 
-        self.save_config(extra_videos)
+        self.save_config(self.extra_videos + extra_videos)
 
     def _upload_video_wrapper(self, video, channel_name):
         """Wrap _upload video function to catch exceptions.
