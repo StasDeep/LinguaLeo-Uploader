@@ -21,6 +21,7 @@ import datetime
 from HTMLParser import HTMLParser
 import json
 import os
+import re
 import urllib2
 
 from apiclient.discovery import build
@@ -133,8 +134,11 @@ class LeoUploader(object):
         if self.driver.current_url == 'http://lingualeo.com/ru/login':
             raise CredentialsError('Invalid email and/or password')
 
-    def save_config(self):
+    def save_config(self, extra_videos=None):
         """Save updated config to file."""
+        if extra_videos is not None:
+            self.erroneous_videos.extend(extra_videos)
+
         data = dict(
             api_key=self.api_key,
             email=self.email,
@@ -156,7 +160,35 @@ class LeoUploader(object):
         Raises:
             ValueError: if URLs' format is incorrect.
         """
-        pass
+        yt_video_id_pattern = r'(?:youtube\.com/watch\?v=|youtu\.be/)(.{11})'
+        video_ids = [re.search(yt_video_id_pattern, link).group(1)
+                     for link in extra_videos]
+
+        extra_videos = []
+
+        for video_id in video_ids:
+            response = self.youtube.videos().list(
+                part='snippet',
+                id=video_id
+            ).execute()
+
+            video_title = response['items'][0]['snippet']['title']
+            channel_id = response['items'][0]['snippet']['channelId']
+
+            response = self.youtube.channels().list(
+                part='snippet',
+                id=channel_id
+            ).execute()
+
+            channel_name = response['items'][0]['snippet']['title']
+
+            extra_videos.append(dict(
+                id=video_id,
+                title=video_title,
+                channel_name=channel_name
+            ))
+
+        self.save_config(extra_videos)
 
     def _upload_video_wrapper(self, video, channel_name):
         """Wrap _upload video function to catch exceptions.
