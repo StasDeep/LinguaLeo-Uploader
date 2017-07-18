@@ -361,6 +361,7 @@ class LeoUploader(object):
         """Concat channel name and video title.
         Take into special cases.
         """
+        video_title.encode('utf-8')
         if channel_name == 'Numberphile':
             if video_title.endswith('- Numberphile'):
                 video_title = video_title[:-13]
@@ -368,7 +369,10 @@ class LeoUploader(object):
         if channel_name == 'TEDEd':
             video_title = video_title.rsplit(' - ', 1)[0]
 
-        return '{} - {}'.format(channel_name, video_title)
+        if channel_name == '-':
+            return video_title
+
+        return channel_name + ' - ' + video_title
 
 
 def main():
