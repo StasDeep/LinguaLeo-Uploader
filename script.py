@@ -17,7 +17,6 @@ Usage:
 
 """
 
-import argparse
 import datetime
 from HTMLParser import HTMLParser
 import json
@@ -25,13 +24,14 @@ import os
 import re
 import urllib2
 
-from apiclient.discovery import build
-from apiclient.errors import HttpError
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from httplib2 import ServerNotFoundError
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
+import argparser
 import xml2srt
 
 
@@ -390,29 +390,25 @@ class LeoUploader(object):
 
         return channel_name + ' - ' + video_title
 
+    @staticmethod
+    def create_config(filename):
+        data = dict()
+        data['email'] = raw_input('Enter LinguaLeo email: ')
+        data['password'] = raw_input('Enter LinguaLeo password: ')
+        data['api_key'] = raw_input('Enter YouTube API key: ')
+        data['channels'] = []
+        data['extra_videos'] = []
+        with open(filename, 'w') as outfile:
+            json.dump(data, outfile, indent=4)
+
 
 def main():
     """Main function that launches automatically from command line."""
-    parser = argparse.ArgumentParser(
-        description='Work with LinguaLeo video adding mechanism.'
-    )
-
-    parser.add_argument(
-        '--extra',
-        dest='extra_videos',
-        metavar='VIDEO_URL',
-        nargs='+',
-        default=[],
-        help='URLs to YouTube videos'
-    )
-
-    parser.add_argument(
-        '--config',
-        default='data.json',
-        help='Name of the config file'
-    )
-
+    parser = argparser.get_parser()
     args = parser.parse_args()
+
+    if args.new_config_name:
+        LeoUploader.create_config(args.new_config_name)
 
     try:
         leo_uploader = LeoUploader(args.config)
@@ -420,8 +416,13 @@ def main():
         print exception
         return
 
-    if args.extra_videos:
-        leo_uploader.write_extra_videos(args.extra_videos)
+    if args.extra_videos or args.new_channels:
+        if args.extra_videos:
+            leo_uploader.write_extra_videos(args.extra_videos)
+
+        # if args.new_channels:
+        #     leo_uploader
+
         return
 
     leo_uploader.load_new_videos()
