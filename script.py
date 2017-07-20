@@ -36,6 +36,7 @@ import xml2srt
 
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
+ISO_8601_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 
 
 class CredentialsError(Exception):
@@ -212,21 +213,41 @@ class LeoUploader(object):
 
         self.save_config(self.extra_videos + extra_videos)
 
-    def add_channels(self, channel_urls):
+    def write_new_channels(self, channel_urls):
         """Add new channels to config
 
         Args:
             channel_urls (list): list with URLs to channels.
-                Must contain channel ID.
         """
         for channel_url in channel_urls:
-            match = re.search(r'youtube\.com\/channel\/(.{24})', channel_url)
+            match = re.search(r'youtube\.com/channel/(.{24})', channel_url)
+
             if not match:
-                print 'Not valid channel URL: {}'.format(channel_url)
-                continue
+                match = re.search(r'youtube\.com/user/(.*)', channel_url)
 
-            print match.group(1)
+                if not match:
+                    print 'Not valid channel URL: {}'.format(channel_url)
+                    continue
 
+                search_by_id = False
+            else:
+                search_by_id = True
+
+            channel_search_param = match.group(1)
+
+            search_kwargs = dict(part='snippet')
+            if search_by_id:
+                search_kwargs['id'] = channel_search_param
+            else:
+                search_kwargs['forUsername'] = channel_search_param
+
+            response = self.youtube.channels().list(**search_kwargs).execute()
+
+            self.channels.append(dict(
+                channel_title=response['items'][0]['snippet']['title'],
+                channel_id=response['items'][0]['id'],
+                current_time=datetime.datetime.now().strftime(ISO_8601_FORMAT)
+            ))
 
     def _upload_video_wrapper(self, video, channel_name):
         """Wrap _upload video function to catch exceptions.
@@ -381,10 +402,9 @@ class LeoUploader(object):
         Returns:
             str: new timestamp
         """
-        iso_8601_format = '%Y-%m-%dT%H:%M:%SZ'
-        old_datetime = datetime.datetime.strptime(timestamp, iso_8601_format)
+        old_datetime = datetime.datetime.strptime(timestamp, ISO_8601_FORMAT)
         old_datetime += datetime.timedelta(seconds=1)
-        return old_datetime.strftime(iso_8601_format)
+        return old_datetime.strftime(ISO_8601_FORMAT)
 
     @staticmethod
     def _generate_video_title(channel_name, video_title):
@@ -436,9 +456,10 @@ def main():
         if args.extra_videos:
             leo_uploader.write_extra_videos(args.extra_videos)
 
-        # if args.new_channels:
-        #     leo_uploader
+        if args.new_channels:
+            leo_uploader.write_new_channels(args.new_channels)
 
+        leo_uploader.save_config()
         return
 
     leo_uploader.load_new_videos()
