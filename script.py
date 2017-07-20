@@ -12,7 +12,8 @@
 """Work with LinguaLeo "Add content" interface and YouTube API.
 
 Usage:
-  $ python script.py data.json
+  $ python script.py --extra https://youtube.com/watch?v=Akm7ik-H_7U
+  $ python script.py --config data.json
 
 """
 
@@ -73,6 +74,25 @@ class LeoUploader(object):
 
         self.driver = webdriver.Chrome()
 
+    def load_new_videos(self):
+        """Load information about new videos on the channels."""
+        for channel in self.channels:
+            try:
+                channel['new_videos'] = self._get_new_videos(channel)
+            except HttpError:
+                print 'Cannot get videos from channel "{}"'.format(channel['name'])
+                continue
+
+    def any_videos_to_upload(self):
+        """Check if there are any videos to upload.
+
+        Returns:
+            bool: True, if at least one video is going to be uploaded.
+                  False, otherwise.
+        """
+        any_new_videos = any(channel['new_videos'] for channel in self.channels)
+        return any_new_videos or self.extra_videos
+
     def add_new_videos(self):
         """Upload new videos from channels to LinguaLeo.
 
@@ -85,18 +105,12 @@ class LeoUploader(object):
                 print
             print "Checking {}...".format(channel['name'])
 
-            try:
-                new_videos = self._get_new_videos(channel)
-            except HttpError as exception:
-                print 'Cannot get videos from channel "{}"'.format(channel['name'])
-                continue
-
-            if not new_videos:
+            if not channel['new_videos']:
                 print '  No new videos'
             else:
-                print '  Found {} new video(s)'.format(len(new_videos))
+                print '  Found {} new video(s)'.format(len(channel['new_videos']))
 
-            for video in sorted(new_videos, key=lambda x: x['published_at']):
+            for video in sorted(channel['new_videos'], key=lambda x: x['published_at']):
                 try:
                     self._upload_video_wrapper(video, channel['name'])
                 except AttributeError as exception:
@@ -228,7 +242,6 @@ class LeoUploader(object):
                 self.driver.current_url
             )
 
-
     def _upload_video(self, video, channel_name):
         """Download subtitles, fill LinguaLeo form and publish video.
 
@@ -357,14 +370,17 @@ class LeoUploader(object):
         old_datetime += datetime.timedelta(seconds=1)
         return old_datetime.strftime(iso_8601_format)
 
-    def _generate_video_title(self, channel_name, video_title):
+    @staticmethod
+    def _generate_video_title(channel_name, video_title):
         """Concat channel name and video title.
         Take into special cases.
+
+        Args:
+            channel_name (str): name of the channel.
+                Omitted, if equals to '-'.
+            video_title (str): title of the video.
         """
         video_title.encode('utf-8')
-        if channel_name == 'Numberphile':
-            if video_title.endswith('- Numberphile'):
-                video_title = video_title[:-13]
 
         if channel_name == 'TEDEd':
             video_title = video_title.rsplit(' - ', 1)[0]
@@ -408,11 +424,14 @@ def main():
         leo_uploader.write_extra_videos(args.extra_videos)
         return
 
-    try:
-        leo_uploader.sign_in()
-    except CredentialsError as exception:
-        print exception
-        return
+    leo_uploader.load_new_videos()
+
+    if leo_uploader.any_videos_to_upload():
+        try:
+            leo_uploader.sign_in()
+        except CredentialsError as exception:
+            print exception
+            return
 
     try:
         leo_uploader.add_new_videos()
