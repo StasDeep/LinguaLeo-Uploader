@@ -34,7 +34,8 @@ def get_parser():
     parser.add_argument(
         '--create-config',
         dest='new_config_name',
-        default='data.json',
+        nargs='?',
+        const='data1.json',
         help='Create new config file (data.json is default name)'
     )
 

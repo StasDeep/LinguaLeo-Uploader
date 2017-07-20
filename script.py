@@ -212,6 +212,22 @@ class LeoUploader(object):
 
         self.save_config(self.extra_videos + extra_videos)
 
+    def add_channels(self, channel_urls):
+        """Add new channels to config
+
+        Args:
+            channel_urls (list): list with URLs to channels.
+                Must contain channel ID.
+        """
+        for channel_url in channel_urls:
+            match = re.search(r'youtube\.com\/channel\/(.{24})', channel_url)
+            if not match:
+                print 'Not valid channel URL: {}'.format(channel_url)
+                continue
+
+            print match.group(1)
+
+
     def _upload_video_wrapper(self, video, channel_name):
         """Wrap _upload video function to catch exceptions.
 
