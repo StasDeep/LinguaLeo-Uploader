@@ -74,6 +74,7 @@ class LeoUploader(object):
         self.youtube = build('youtube', 'v3', developerKey=self.api_key)
 
         self.driver = webdriver.Chrome()
+        self.driver.maximize_window()
 
     def load_new_videos(self):
         """Load information about new videos on the channels."""
