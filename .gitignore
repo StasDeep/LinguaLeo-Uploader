@@ -105,3 +105,4 @@ ENV/
 
 # Settings
 data.json
+.leo.json

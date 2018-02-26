@@ -18,7 +18,6 @@ def get_parser():
 
     parser.add_argument(
         '--config',
-        default='data.json',
         help='Name of the config file'
     )
 
@@ -37,6 +36,18 @@ def get_parser():
         nargs='?',
         const='data.json',
         help='Create new config file (data.json is default name)'
+    )
+
+    parser.add_argument(
+        '--set-default-config',
+        dest='default_config_name',
+        help='Set config file as a default config'
+    )
+
+    parser.add_argument(
+        '--clear-extra',
+        action='store_true',
+        help='Clear extra videos from config'
     )
 
     return parser

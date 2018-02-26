@@ -47,6 +47,8 @@ class CredentialsError(Exception):
 class LeoUploader(object):
     """Uploads YouTube video to LinguaLeo."""
 
+    INNER_CONFIG_NAME = '.leo.json'
+
     def __init__(self, config_filename):
         """Initialize LeoUploader object.
         Sign in to LinguaLeo.
@@ -438,6 +440,37 @@ class LeoUploader(object):
         with open(filename, 'w') as outfile:
             json.dump(data, outfile, indent=4)
 
+    @staticmethod
+    def set_default_config(filename):
+        if not os.path.exists(LeoUploader.INNER_CONFIG_NAME):
+            with open(LeoUploader.INNER_CONFIG_NAME, 'w+'):
+                pass
+
+        with open(LeoUploader.INNER_CONFIG_NAME, 'r+') as infile:
+            try:
+                data = json.load(infile)
+            except ValueError:
+                data = {}
+        data['config'] = filename
+
+        with open(LeoUploader.INNER_CONFIG_NAME, 'w') as outfile:
+            json.dump(data, outfile)
+
+    @staticmethod
+    def clear_extra_videos(config_name):
+        with open(config_name) as infile:
+            data = json.load(infile)
+
+        data['extra_videos'] = []
+
+        with open(config_name, 'w') as outfile:
+            json.dump(data, outfile, indent=4)
+
+    @staticmethod
+    def get_default_config():
+        with open(LeoUploader.INNER_CONFIG_NAME) as infile:
+            return json.load(infile)['config']
+
 
 def main():
     """Main function that launches automatically from command line."""
@@ -447,8 +480,18 @@ def main():
     if args.new_config_name:
         LeoUploader.create_config(args.new_config_name)
 
+    if args.default_config_name:
+        LeoUploader.set_default_config(args.default_config_name)
+        return
+
+    config = args.config or LeoUploader.get_default_config()
+
     try:
-        leo_uploader = LeoUploader(args.config)
+        if args.clear_extra:
+            LeoUploader.clear_extra_videos(config)
+            return
+
+        leo_uploader = LeoUploader(config)
     except (IOError, KeyError, ValueError) as exception:
         print exception
         return
