@@ -102,7 +102,3 @@ ENV/
 
 # PyCharm
 .idea/
-
-# Settings
-data.json
-.leo.json

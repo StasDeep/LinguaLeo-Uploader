@@ -47,7 +47,7 @@ class CredentialsError(Exception):
 class LeoUploader(object):
     """Uploads YouTube video to LinguaLeo."""
 
-    INNER_CONFIG_NAME = '.leo.json'
+    INNER_CONFIG_NAME = os.path.join(os.path.expanduser('~'), '.leo.json')
 
     def __init__(self, config_filename):
         """Initialize LeoUploader object.
@@ -275,8 +275,6 @@ class LeoUploader(object):
                 YT_PREFIX + video['id'],
                 exception
             ))
-        except UserWarning as warning:
-            print '  {}'.format(warning)
         else:
             print '  Successfully uploaded: {}'.format(
                 self.driver.current_url
@@ -320,23 +318,24 @@ class LeoUploader(object):
         # Submit whole form, which will redirect to Publish page.
         self.driver.find_element_by_id('addContentForm').submit()
 
+        # Remove subtitles, because they are not needed anymore.
+        os.remove(subtitles_filename)
+
         # Publish video, which will redirect to final page with video.
         # If Publish button does not exist, there could be 2 reasons:
         # - invalid input (error);
-        # - video is processing (warn user, that video needs to be published).
-        try:
-            self.driver.find_element_by_id('publicContentBtn').click()
-        except NoSuchElementException:
-            if self.driver.current_url == 'http://lingualeo.com/ru/jungle/add':
-                raise AttributeError('Cannot submit form. '
-                                     'Probably name is incorrect')
-            else:
-                raise UserWarning('Need to publish: {}'.format(
-                    self.driver.current_url
-                ))
-        finally:
-            # Remove subtitles, because they are not needed anymore.
-            os.remove(subtitles_filename)
+        # - video is processing (try again in loop).
+        while True:
+            try:
+                self.driver.find_element_by_id('publicContentBtn').click()
+                break
+            except NoSuchElementException:
+                if self.driver.current_url == 'http://lingualeo.com/ru/jungle/add':
+                    raise AttributeError('Cannot submit form. '
+                                         'Probably name is incorrect')
+                else:
+                    print '  Trying to publish: {}'.format(self.driver.current_url)
+                    self.driver.refresh()
 
     def _get_new_videos(self, channel):
         """Return new videos from channel (ID, title and publish datetime).
@@ -451,20 +450,25 @@ class LeoUploader(object):
                 data = json.load(infile)
             except ValueError:
                 data = {}
-        data['config'] = filename
+        data['config'] = os.path.abspath(filename)
 
         with open(LeoUploader.INNER_CONFIG_NAME, 'w') as outfile:
             json.dump(data, outfile)
+
+        print 'Set default config: {}'.format(data['config'])
 
     @staticmethod
     def clear_extra_videos(config_name):
         with open(config_name) as infile:
             data = json.load(infile)
 
+        extra_videos_count = len(data['extra_videos'])
         data['extra_videos'] = []
 
         with open(config_name, 'w') as outfile:
             json.dump(data, outfile, indent=4)
+
+        print 'Cleared {} video(s)'.format(extra_videos_count)
 
     @staticmethod
     def get_default_config():
