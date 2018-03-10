@@ -1,19 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-#------------------------------------------------------------------------------
-# Name:     LinguaLeo Uploader
-# Purpose:  Automated content addition to LinguaLeo from favorite channels.
-#
-# Created:  9th of July 2017
-# Author:   StasDeep
-#------------------------------------------------------------------------------
-
 """Work with LinguaLeo "Add content" interface and YouTube API.
 
 Usage:
-  $ python script.py --extra https://youtube.com/watch?v=Akm7ik-H_7U
-  $ python script.py --config data.json
+  $ leo --extra https://youtube.com/watch?v=Akm7ik-H_7U
+  $ leo --config data.json
 
 """
 
@@ -31,8 +23,8 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-import argparser
-import xml2srt
+import leo.argparser as argparser
+import leo.xml2srt as xml2srt
 
 
 YT_PREFIX = 'https://www.youtube.com/watch?v='
