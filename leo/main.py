@@ -152,7 +152,7 @@ class LeoUploader(object):
 
     def save_config(self, extra_videos=None):
         """Save updated config to file."""
-        # If extra videos are provided, than they're should be saved as well
+        # If extra videos are provided, than they should be saved as well
         # as erroneous videos.
         if extra_videos is not None:
             self.erroneous_videos.extend(extra_videos)
@@ -161,7 +161,7 @@ class LeoUploader(object):
             api_key=self.api_key,
             email=self.email,
             password=self.password,
-            channels=self.channels,
+            channels=[{k: channel[k] for k in channel if k != 'new_videos'} for channel in self.channels],
             extra_videos=self.erroneous_videos
         )
 
