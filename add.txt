@@ -1,0 +1,49 @@
+http://lingualeo.com/ru/jungle/add
+http://lingualeo.com/ru/content/publicate/596929
+
+
+-----------------------------144495479694512504166039197
+Content-Disposition: form-data; name="content_type"
+
+1
+-----------------------------144495479694512504166039197
+Content-Disposition: form-data; name="content_embed"
+
+https://www.youtube.com/watch?v=9P6rdqiybaw
+-----------------------------144495479694512504166039197
+Content-Disposition: form-data; name="content_name"
+
+Wormholes Explained
+-----------------------------144495479694512504166039197
+Content-Disposition: form-data; name="content_srt"; filename="9P6rdqiybaw.srt"
+Content-Type: application/x-subrip
+
+1
+00:00:01,380 --> 00:00:07,260
+If you saw a wormhole in reality, it would appear round, spherical, a bit like a black hole.
+
+2
+00:00:08,120 --> 00:00:12,860
+Light from the other side passes through and gives you a window to a faraway place.
+
+3
+00:00:13,660 --> 00:00:20,320
+Once crossed, the other side comes fully into view with your old home now receding into that shimmering spherical window.
+
+4
+00:00:21,320 --> 00:00:23,120
+But are wormholes real
+
+-----------------------------144495479694512504166039197
+Content-Disposition: form-data; name="withoutSubtitles"
+
+0
+-----------------------------144495479694512504166039197
+Content-Disposition: form-data; name="content_text"
+
+
+-----------------------------144495479694512504166039197
+Content-Disposition: form-data; name="genre_id"
+
+10
+-----------------------------144495479694512504166039197--

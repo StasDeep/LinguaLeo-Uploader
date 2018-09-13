@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """Convert XML subtitles to SRT format."""
@@ -50,4 +49,4 @@ def _format_time(seconds):
     seconds = int(round(seconds))
     millisecs = int(round(millisecs * 1000))
 
-    return '{hours:02d}:{minutes:02d}:{seconds:02d},{millisecs:03d}'.format(**locals())
+    return f'{hours:02d}:{minutes:02d}:{seconds:02d},{millisecs:03d}'
